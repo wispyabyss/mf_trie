@@ -1,14 +1,12 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+mod english_letter;
+mod letter;
+mod node_trie;
+mod trie;
+
+pub use english_letter::*;
+pub use letter::*;
+pub use node_trie::*;
+pub use trie::*;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+mod tests {}
