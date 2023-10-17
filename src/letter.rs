@@ -1,3 +1,3 @@
 use std::fmt::Debug;
-
-pub trait Letter: Debug + PartialEq { }
+use std::hash::Hash;
+pub trait Letter: Clone + Debug + Eq + Hash + PartialEq { }

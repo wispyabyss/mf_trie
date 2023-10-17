@@ -2,6 +2,8 @@ use crate::letter::Letter;
 use std::fmt::Debug;
 
 pub trait Trie<L: Letter>: Debug {
-    fn add(&self, word: &Vec<L>) -> Self;
-    fn contains(&self, word: &Vec<L>) -> bool;
+    fn new() -> Self;
+    fn add(&mut self, word: &[L]);
+    fn contains(&self, word: &[L]) -> bool;
+    fn delete(&mut self, word: &[L]);
 }
