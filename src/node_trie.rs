@@ -4,12 +4,9 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 /* TODO List:
-1. NodeTrie is no longer a duplicate struct, but a type alias. It should now be easier to iterate
-on a node level, rather than a two hashmap level. Try this out, as it might make the code cleaner.
+1. Clean up testing. Try and extract common code (such as trie creation) to a helper method.
 
-2. Clean up testing. Try and extract common code (such as trie creation) to a helper method.
-
-3. Clean up todos in code below.
+2. Clean up todos in code below.
 */
 
 pub type NodeTrie<L> = Node<L>;
@@ -30,40 +27,38 @@ impl<L: Letter> Trie<L> for Node<L> {
 
     // TODO: Deduplicate. But, it seems to involve lifetimes, so leaving for now.
     fn add(&mut self, word: &[L]) {
-        let mut letter_to_node_map = &mut self.letter_to_node_map;
-        let mut letter_to_is_word_map = &mut self.letter_to_is_word_map;
-
+        let mut node = self;
         for letter in &word[..word.len().saturating_sub(1)] {
             let new_node_box: Box<Node<L>> = Box::new(Node::new());
-            let node_box = letter_to_node_map.entry(letter.clone()).or_insert(new_node_box);
-
-            letter_to_node_map = &mut node_box.letter_to_node_map;
-            letter_to_is_word_map = &mut node_box.letter_to_is_word_map;
+            let node_box = node.letter_to_node_map
+                .entry(letter.clone())
+                .or_insert(new_node_box);
+            node = &mut (*node_box);
         }
-
         if let Some(last_letter) = word.last() {
             let new_node_box: Box<Node<L>> = Box::new(Node::new());
-            let _ = letter_to_node_map.entry(last_letter.clone()).or_insert(new_node_box);
+            let _ = node.letter_to_node_map
+                .entry(last_letter.clone())
+                .or_insert(new_node_box);
 
-            letter_to_is_word_map.insert(last_letter.clone(), true);
+            node.letter_to_is_word_map.insert(last_letter.clone(), true);
         }
     }
 
     fn contains(&self, word: &[L]) -> bool {
-        let mut letter_to_node_map = &self.letter_to_node_map;
-        let mut letter_to_is_word_map = &self.letter_to_is_word_map;
-        let mut letter_is_word = &false;
-        for letter in word {
-            letter_is_word = letter_to_is_word_map.get(letter).unwrap_or(&false);
-            match letter_to_node_map.get(letter) {
+        let mut node = self;
+        for letter in &word[..word.len().saturating_sub(1)] {
+            match node.letter_to_node_map.get(letter) {
                 None => { return false }
                 Some(node_box) => {
-                    letter_to_node_map = &(*node_box).letter_to_node_map;
-                    letter_to_is_word_map = &(*node_box).letter_to_is_word_map;
+                    node = &(*node_box);
                 }
             }
         }
-        return letter_is_word.clone();
+        if let Some(last_letter) = word.last() {
+            return node.letter_to_is_word_map.get(last_letter).unwrap_or(&false).clone()
+        }
+        false
     }
 
     fn delete(&mut self, word: &[L]) {
