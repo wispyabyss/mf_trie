@@ -64,6 +64,17 @@ impl<L: Letter> Trie<L> for Node<L> {
     fn delete(&mut self, word: &[L]) {
         if word.is_empty() { return }
         todo!();
+        /* Delete description:
+        1. EZ delete (first implementation) - just iterate to the final letter in the word, and
+        update its value in the letter_to_is_word_map
+        2. Hard delete.
+          - Case One: final letter node has non empty letter_to_node_map. In this case, all we can
+          do is update the value in letter_to_is_word_map
+          - Case Two: final letter node has empty letter_to_node_map. In this case, we can delete
+          the node. Then, we can start upward traversal, deleting every node, stopping only when:
+            1. The letter_to_node_map contains a letter not matching the word
+            2. The letter_to_is_word_map contains the word letter as a sub word
+         */
     }
 }
 
