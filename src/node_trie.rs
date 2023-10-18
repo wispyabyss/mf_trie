@@ -3,59 +3,72 @@ use crate::trie::Trie;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-#[derive(Debug)]
-struct Node<L: Letter> {
-    // TODO: Add a value that indicates if the current node is the end of a word
-    // This helps for the case when MFTRIE is a word, but MF is not
-    // This will also help with the delete method, if we want a simple implementation - if we
-    // can traverse to the end of the word, just update the value. More space efficient method
-    // would delete the node if it had no children, and the list of above nodes that have is_word = false
-    // until we reach a node where is_word = true.
-    children: HashMap<L, Box<Node<L>>>
-}
+/* TODO List:
+1. NodeTrie is no longer a duplicate struct, but a type alias. It should now be easier to iterate
+on a node level, rather than a two hashmap level. Try this out, as it might make the code cleaner.
+
+2. Clean up testing. Try and extract common code (such as trie creation) to a helper method.
+
+3. Clean up todos in code below.
+*/
+
+pub type NodeTrie<L> = Node<L>;
 
 #[derive(Debug)]
-pub struct NodeTrie<L: Letter> {
-    roots: HashMap<L, Box<Node<L>>>
+pub struct Node<L: Letter> {
+    letter_to_node_map: HashMap<L, Box<Node<L>>>,
+    letter_to_is_word_map: HashMap<L, bool>
 }
 
-impl<L: Letter> Trie<L> for NodeTrie<L> {
+impl<L: Letter> Trie<L> for Node<L> {
     fn new() -> Self {
         Self {
-            roots: HashMap::new()
+            letter_to_node_map: HashMap::new(),
+            letter_to_is_word_map: HashMap::new()
         }
     }
 
+    // TODO: Deduplicate. But, it seems to involve lifetimes, so leaving for now.
     fn add(&mut self, word: &[L]) {
-        let mut letter_hash_map = &mut self.roots;
-        for letter in word {
-            let new_node_box: Box<Node<L>> = Box::new(Node {
-                children: HashMap::new()
-            });
+        let mut letter_to_node_map = &mut self.letter_to_node_map;
+        let mut letter_to_is_word_map = &mut self.letter_to_is_word_map;
 
-            let node_box = letter_hash_map
-                .entry(letter.clone())
-                .or_insert(new_node_box);
+        for letter in &word[..word.len().saturating_sub(1)] {
+            let new_node_box: Box<Node<L>> = Box::new(Node::new());
+            let node_box = letter_to_node_map.entry(letter.clone()).or_insert(new_node_box);
 
-            letter_hash_map = &mut node_box.children;
+            letter_to_node_map = &mut node_box.letter_to_node_map;
+            letter_to_is_word_map = &mut node_box.letter_to_is_word_map;
+        }
+
+        if let Some(last_letter) = word.last() {
+            let new_node_box: Box<Node<L>> = Box::new(Node::new());
+            let _ = letter_to_node_map.entry(last_letter.clone()).or_insert(new_node_box);
+
+            letter_to_is_word_map.insert(last_letter.clone(), true);
         }
     }
 
     fn contains(&self, word: &[L]) -> bool {
-        let mut letter_hash_map = &self.roots;
+        let mut letter_to_node_map = &self.letter_to_node_map;
+        let mut letter_to_is_word_map = &self.letter_to_is_word_map;
+        let mut letter_is_word = &false;
         for letter in word {
-            match letter_hash_map.get(letter) {
+            letter_is_word = letter_to_is_word_map.get(letter).unwrap_or(&false);
+            match letter_to_node_map.get(letter) {
                 None => { return false }
                 Some(node_box) => {
-                    letter_hash_map = &(*node_box).children;
+                    letter_to_node_map = &(*node_box).letter_to_node_map;
+                    letter_to_is_word_map = &(*node_box).letter_to_is_word_map;
                 }
             }
         }
-        return true;
+        return letter_is_word.clone();
     }
 
     fn delete(&mut self, word: &[L]) {
-        todo!()
+        if word.is_empty() { return }
+        todo!();
     }
 }
 
@@ -68,6 +81,7 @@ mod tests {
     fn test_new() {
         let empty_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
         let word = [EnglishLetter::A];
+
         assert!(!empty_trie.contains(&word));
     }
 
@@ -75,6 +89,7 @@ mod tests {
     fn test_add_one_letter_contains_one_letter() {
         let mut a_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
         a_trie.add(&[EnglishLetter::A]);
+
         assert!(a_trie.contains(&[EnglishLetter::A]));
     }
 
@@ -82,12 +97,13 @@ mod tests {
     fn test_add_one_letter_does_not_contain_another_letter() {
         let mut a_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
         a_trie.add(&[EnglishLetter::A]);
+
         assert!(!a_trie.contains(&[EnglishLetter::B]));
     }
 
     #[test]
     fn test_add_one_word_contains_one_word() {
-        let mut a_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
+        let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
         let word = [
             EnglishLetter::M,
             EnglishLetter::F,
@@ -96,13 +112,14 @@ mod tests {
             EnglishLetter::I,
             EnglishLetter::E
         ];
-        a_trie.add(&word);
-        assert!(a_trie.contains(&word));
+        mf_trie.add(&word);
+
+        assert!(mf_trie.contains(&word));
     }
 
     #[test]
     fn test_add_one_word_does_not_contain_another_word() {
-        let mut a_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
+        let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
         let word_1 = [
             EnglishLetter::M,
             EnglishLetter::F
@@ -111,13 +128,14 @@ mod tests {
             EnglishLetter::T,
             EnglishLetter::R
         ];
-        a_trie.add(&word_1);
-        assert!(!a_trie.contains(&word_2));
+        mf_trie.add(&word_1);
+
+        assert!(!mf_trie.contains(&word_2));
     }
 
     #[test]
     fn test_add_one_word_does_not_contain_longer_word() {
-        let mut a_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
+        let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
         let word_1 = [
             EnglishLetter::M,
             EnglishLetter::F
@@ -127,13 +145,14 @@ mod tests {
             EnglishLetter::F,
             EnglishLetter::T
         ];
-        a_trie.add(&word_1);
-        assert!(!a_trie.contains(&word_2));
+        mf_trie.add(&word_1);
+
+        assert!(!mf_trie.contains(&word_2));
     }
 
     #[test]
     fn test_add_two_words_contains_two_words() {
-        let mut a_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
+        let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
         let word_1 = [
             EnglishLetter::M,
             EnglishLetter::F
@@ -143,9 +162,21 @@ mod tests {
             EnglishLetter::F,
             EnglishLetter::T
         ];
-        a_trie.add(&word_1);
-        a_trie.add(&word_2);
-        assert!(a_trie.contains(&word_1));
-        assert!(a_trie.contains(&word_2));
+        mf_trie.add(&word_1);
+        mf_trie.add(&word_2);
+
+        assert!(mf_trie.contains(&word_1));
+        assert!(mf_trie.contains(&word_2));
+    }
+
+    #[test]
+    fn test_add_long_word_does_not_contain_short_word() {
+        let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
+        let word_1 = EnglishLetter::from_str("mftrie");
+        let word_2 = EnglishLetter::from_str("mf");
+        mf_trie.add(word_1.as_slice());
+
+        assert!(mf_trie.contains(&word_1.as_slice()));
+        assert!(!mf_trie.contains(&word_2.as_slice()));
     }
 }
