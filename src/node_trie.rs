@@ -76,6 +76,7 @@ impl<L: Letter> Trie<L> for Node<L> {
     fn delete(&mut self, word: &[L]) {
         if word.is_empty() { return }
         let mut node = self;
+        let mut cannot_delete_node: Option<Node<L>> = None;
         for letter in &word[..word.len().saturating_sub(1)] {
             match node.letter_to_node_map.get_mut(letter) {
                 None => { return }
@@ -89,6 +90,47 @@ impl<L: Letter> Trie<L> for Node<L> {
                 .and_modify(|e| *e = false)
                 .or_insert(false);
         }
+    }
+}
+
+impl<L: Letter> Node<L> {
+    /* can_delete is used as a helper for the delete method.
+    Say we are deleting the word mftrie from our trie. Our trie has the following structure, where
+    () indicates a node and [k,v] indicates a map. The -> indicates which node nodebox refers to:
+
+    ([m,is_word],[m,nodebox]) -> ([f,is_word],[f,nodebox]) -> ([t,is_word],[t,nodebox]) ->
+    ([r,is_word],[r,nodebox]) -> ([i,is_word],[i,nodebox]) -> ([e,is_word],[e,nodebox])
+
+    ([e,is_word],[e,nodebox]) can be deleted if:
+        1. *nodebox is empty. This implies mftrie is not a subword for some larger word (ex: mftriex)
+        2. [e,is_word] contains no other entries like [key,true]. This implies there are no other
+        words like mftrix.
+        2. [e,nodebox] contains no other keys. This implies there are no other words like mftrixy
+
+    ([i,is_word],[i,nodebox]) can be deleted if:
+        1. *nodebox is empty (ie, we deleted ([e,is_word],[e,nodebox])). This implies mftri is not
+        a subword of some larger word.
+        2. [i,is_word] contains no other entries like [key,true]. This implies there are no other
+        words like mftrx.
+        3. [i,nodebox] contains no other keys. This implies there are no other words like mftrxy.
+
+     Note, the 3 conditions are the same for each node in the list. Note that this would be much
+     easier if we could traverse up, but we don't have any up pointers. So, how can we do it?
+
+     Here is how I envision the algorithm: As we iterate through the 6 nodes above, we keep track
+     of the last node that breaks rules 2 and 3. Say this is ([f,is_word],[f,nodebox]) for example.
+     Thus, ([t,is_word],[t,nodebox]) ... ([e,is_word],[e,nodebox]) satisfy 2 and 3.
+
+     When we get to ([e,is_word],[e,nodebox]), we determine whether 1 is satisfied. If 1 is not
+     satisfied, we can't delete anything. If 1 is satisfied, note how 1 will bubble up and be
+     satisfied for ([t,is_word],[t,nodebox]) ... ([e,is_word],[e,nodebox]). Thus, all the nodes
+     beneath ([f,is_word],[f,nodebox]) can be deleted.
+
+     And now we get to can_delete. I will probably rename this method, but it will essentially
+     indicate whether the node satisfies 2 and 3.
+     */
+    fn can_delete(&self, letter: &L) -> bool {
+        return false;
     }
 }
 
