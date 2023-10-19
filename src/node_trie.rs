@@ -4,9 +4,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 /* TODO List:
-1. Clean up testing. Try and extract common code (such as trie creation) to a helper method.
-
-2. Clean up todos in code below.
+1. Clean up todos in code below.
 */
 
 pub type NodeTrie<L> = Node<L>;
@@ -61,20 +59,33 @@ impl<L: Letter> Trie<L> for Node<L> {
         false
     }
 
+    /* Delete description:
+    1. EZ delete (first implementation) - just iterate to the final letter in the word, and
+    update its value in the letter_to_is_word_map
+    2. Hard delete.
+      - Case One: final letter node has non empty letter_to_node_map. In this case, all we can
+      do is update the value in letter_to_is_word_map
+      - Case Two: final letter node has empty letter_to_node_map. In this case, we can delete
+      the node. Then, we can start upward traversal, deleting every node, stopping only when:
+        1. The letter_to_node_map contains a letter not matching the word
+        2. The letter_to_is_word_map contains the word letter as a sub word
+    */
     fn delete(&mut self, word: &[L]) {
         if word.is_empty() { return }
-        todo!();
-        /* Delete description:
-        1. EZ delete (first implementation) - just iterate to the final letter in the word, and
-        update its value in the letter_to_is_word_map
-        2. Hard delete.
-          - Case One: final letter node has non empty letter_to_node_map. In this case, all we can
-          do is update the value in letter_to_is_word_map
-          - Case Two: final letter node has empty letter_to_node_map. In this case, we can delete
-          the node. Then, we can start upward traversal, deleting every node, stopping only when:
-            1. The letter_to_node_map contains a letter not matching the word
-            2. The letter_to_is_word_map contains the word letter as a sub word
-         */
+        let mut node = self;
+        for letter in &word[..word.len().saturating_sub(1)] {
+            match node.letter_to_node_map.get_mut(letter) {
+                None => { return }
+                Some(node_box) => {
+                    node = &mut (*node_box);
+                }
+            }
+        }
+        if let Some(last_letter) = word.last() {
+            node.letter_to_is_word_map.entry(last_letter.clone())
+                .and_modify(|e| *e = false)
+                .or_insert(false);
+        }
     }
 }
 
@@ -83,106 +94,125 @@ mod tests {
     use crate::english_letter::EnglishLetter;
     use super::*;
 
+    struct BaseTest {
+        word_1: Vec<EnglishLetter>,
+        word_2: Vec<EnglishLetter>,
+        empty_trie: NodeTrie<EnglishLetter>,
+        a_trie: NodeTrie<EnglishLetter>,
+        mf_trie: NodeTrie<EnglishLetter>
+    }
+
+    impl BaseTest {
+        fn new() -> Self {
+            let word_1 = EnglishLetter::from_str("mftrie");
+            let word_2 = EnglishLetter::from_str("mf");
+
+            let empty_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
+            let mut a_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
+            let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
+
+            a_trie.add(&[EnglishLetter::A]);
+            mf_trie.add(&word_1.as_slice());
+
+            BaseTest {
+                word_1,
+                word_2,
+                empty_trie,
+                a_trie,
+                mf_trie
+            }
+        }
+    }
+
     #[test]
     fn test_new() {
-        let empty_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
-        let word = [EnglishLetter::A];
+        let base_test = BaseTest::new();
 
-        assert!(!empty_trie.contains(&word));
+        assert!(!base_test.empty_trie.contains(&[EnglishLetter::A]));
     }
 
     #[test]
     fn test_add_one_letter_contains_one_letter() {
-        let mut a_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
-        a_trie.add(&[EnglishLetter::A]);
+        let base_test = BaseTest::new();
 
-        assert!(a_trie.contains(&[EnglishLetter::A]));
+        assert!(base_test.a_trie.contains(&[EnglishLetter::A]));
     }
 
     #[test]
     fn test_add_one_letter_does_not_contain_another_letter() {
-        let mut a_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
-        a_trie.add(&[EnglishLetter::A]);
+        let base_test = BaseTest::new();
 
-        assert!(!a_trie.contains(&[EnglishLetter::B]));
+        assert!(!base_test.a_trie.contains(&[EnglishLetter::B]));
     }
 
     #[test]
     fn test_add_one_word_contains_one_word() {
-        let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
-        let word = [
-            EnglishLetter::M,
-            EnglishLetter::F,
-            EnglishLetter::T,
-            EnglishLetter::R,
-            EnglishLetter::I,
-            EnglishLetter::E
-        ];
-        mf_trie.add(&word);
+        let base_test = BaseTest::new();
 
-        assert!(mf_trie.contains(&word));
+        assert!(base_test.mf_trie.contains(&base_test.word_1));
     }
 
     #[test]
-    fn test_add_one_word_does_not_contain_another_word() {
-        let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
-        let word_1 = [
-            EnglishLetter::M,
-            EnglishLetter::F
-        ];
-        let word_2 = [
-            EnglishLetter::T,
-            EnglishLetter::R
-        ];
-        mf_trie.add(&word_1);
+    fn test_add_one_word_does_not_contain_shorter_word() {
+        let base_test = BaseTest::new();
 
-        assert!(!mf_trie.contains(&word_2));
+        assert!(!base_test.mf_trie.contains(&base_test.word_2));
     }
 
     #[test]
     fn test_add_one_word_does_not_contain_longer_word() {
-        let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
-        let word_1 = [
-            EnglishLetter::M,
-            EnglishLetter::F
-        ];
-        let word_2 = [
-            EnglishLetter::M,
-            EnglishLetter::F,
-            EnglishLetter::T
-        ];
-        mf_trie.add(&word_1);
+        let base_test = BaseTest::new();
+        let word = EnglishLetter::from_str("mftriex");
 
-        assert!(!mf_trie.contains(&word_2));
+        assert!(!base_test.mf_trie.contains(&word.as_slice()));
     }
 
     #[test]
     fn test_add_two_words_contains_two_words() {
-        let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
-        let word_1 = [
-            EnglishLetter::M,
-            EnglishLetter::F
-        ];
-        let word_2 = [
-            EnglishLetter::M,
-            EnglishLetter::F,
-            EnglishLetter::T
-        ];
-        mf_trie.add(&word_1);
-        mf_trie.add(&word_2);
+        let mut base_test = BaseTest::new();
+        let word = EnglishLetter::from_str("mftriex");
+        base_test.mf_trie.add(&word.as_slice());
 
-        assert!(mf_trie.contains(&word_1));
-        assert!(mf_trie.contains(&word_2));
+        assert!(base_test.mf_trie.contains(&base_test.word_1.as_slice()));
+        assert!(base_test.mf_trie.contains(&word.as_slice()));
     }
 
     #[test]
-    fn test_add_long_word_does_not_contain_short_word() {
-        let mut mf_trie: NodeTrie<EnglishLetter> = NodeTrie::new();
-        let word_1 = EnglishLetter::from_str("mftrie");
-        let word_2 = EnglishLetter::from_str("mf");
-        mf_trie.add(word_1.as_slice());
+    fn test_add_word_delete_word_does_not_contain_word() {
+        let mut base_test = BaseTest::new();
 
-        assert!(mf_trie.contains(&word_1.as_slice()));
-        assert!(!mf_trie.contains(&word_2.as_slice()));
+        assert!(base_test.a_trie.contains(&[EnglishLetter::A]));
+
+        base_test.a_trie.delete(&[EnglishLetter::A]);
+
+        assert!(!base_test.a_trie.contains(&[EnglishLetter::A]));
+    }
+
+    #[test]
+    fn test_add_short_long_word_delete_short_contains_long() {
+        let mut base_test = BaseTest::new();
+        base_test.mf_trie.add(&base_test.word_2.as_slice());
+
+        assert!(base_test.mf_trie.contains(&base_test.word_1.as_slice()));
+        assert!(base_test.mf_trie.contains(&base_test.word_2.as_slice()));
+
+        base_test.mf_trie.delete(&base_test.word_2.as_slice());
+
+        assert!(base_test.mf_trie.contains(&base_test.word_1.as_slice()));
+        assert!(!base_test.mf_trie.contains(&base_test.word_2.as_slice()));
+    }
+
+    #[test]
+    fn test_add_short_long_word_delete_long_contains_short() {
+        let mut base_test = BaseTest::new();
+        base_test.mf_trie.add(&base_test.word_2.as_slice());
+
+        assert!(base_test.mf_trie.contains(&base_test.word_1.as_slice()));
+        assert!(base_test.mf_trie.contains(&base_test.word_2.as_slice()));
+
+        base_test.mf_trie.delete(&base_test.word_1.as_slice());
+
+        assert!(!base_test.mf_trie.contains(&base_test.word_1.as_slice()));
+        assert!(base_test.mf_trie.contains(&base_test.word_2.as_slice()));
     }
 }
