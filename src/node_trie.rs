@@ -69,6 +69,9 @@ impl<L: Letter> Trie<L> for Node<L> {
       the node. Then, we can start upward traversal, deleting every node, stopping only when:
         1. The letter_to_node_map contains a letter not matching the word
         2. The letter_to_is_word_map contains the word letter as a sub word
+      For this second case, when we are traversing down to the final node, we can keep a top node
+      object that will be the deepest node (x) that we find that does not satisfy either 1 or 2. If
+      we find we can delete the word node (y), we can delete all the nodes between x and y.
     */
     fn delete(&mut self, word: &[L]) {
         if word.is_empty() { return }

@@ -20,3 +20,8 @@ Ideas
 - Next implementations can maybe add a hash map alongside the struct, for sub-sequences contained with the trie.
 - Maybe, if optional functions can be added to a trait? we can add functions for like sequence equality (ie, check if 2 or 3 letter sequences are equal) that might be faster than iterating letter by letter
 - Should def add bounds checks to the trie, ie word length is less than the maximum depth of the trie
+- I like the node structure I have with node_trie. Some ideas, however, are:
+  - For node trie, we can limit ourselves to 32 letters. Then, we can keep a 32 bit array for the letter_to_is_word_map. 
+  - Also, for the letter_to_node_map, we can remove the hash map for a 32 bit vector.
+  - In both cases, we can remove the hash map, because with 32 letter limit, we will know the exact memory location for each value related to the letter key
+  - Also, we should try and keep the nodes in contiguous memory - somehow - and if we can keep the order the nodes appear in memory, all the better (ie, memory from left to right, left most is top level and starting letter, rightmost is bottom level ending letter). Might make delete difficult though.
